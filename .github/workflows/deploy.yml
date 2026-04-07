@@ -28,8 +28,8 @@ jobs:
       - name: Generate Firebase config from secrets
         shell: bash
         run: |
-          mkdir -p scripts/config
-          cat <<EOF > scripts/config/firebase-config.js
+          mkdir -p dist/scripts/config
+          cat <<EOF > dist/scripts/config/firebase-config.js
           export const firebaseProjectConfig = {
             apiKey: '${{ secrets.FIREBASE_API_KEY }}',
             authDomain: '${{ secrets.FIREBASE_AUTH_DOMAIN }}',
@@ -45,10 +45,29 @@ jobs:
           };
           EOF
 
+      - name: Assemble static site
+        shell: bash
+        run: |
+          cp index.html dist/index.html
+          cp -R styles dist/styles
+          cp -R scripts/data dist/scripts/data
+          cp -R scripts/services dist/scripts/services
+          cp scripts/app.js dist/scripts/app.js
+          cp scripts/vanishing-typing.js dist/scripts/vanishing-typing.js
+          touch dist/.nojekyll
+
+      - name: Verify build output
+        shell: bash
+        run: |
+          test -f dist/index.html
+          test -f dist/scripts/app.js
+          test -f dist/scripts/config/firebase-config.js
+          ls -R dist
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: ./dist
 
   deploy:
     needs: build
