@@ -1,149 +1,150 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vanishing Typing</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      background: #1a1a2e;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      font-family: 'Georgia', serif;
-      color: #eee;
-      cursor: text;
-    }
-
-    #hint {
-      position: fixed;
-      top: 30px;
-      font-size: 13px;
-      color: #555;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      transition: opacity 1s;
-    }
-
-    #hint.hidden {
-      opacity: 0;
-    }
-
-    #display {
-      width: 80vw;
-      max-width: 900px;
-      min-height: 60px;
-      font-size: clamp(20px, 3vw, 36px);
-      line-height: 1.7;
-      text-align: center;
-      word-break: break-word;
-      color: #e8e0d0;
-      letter-spacing: 0.03em;
-      transition: opacity 0.8s ease;
-      opacity: 1;
-    }
-
-    #display.fade {
-      opacity: 0;
-    }
-
-    #timer-bar-wrap {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      height: 3px;
-      background: #111;
-    }
-
-    #timer-bar {
-      height: 100%;
-      width: 100%;
-      background: #7c6fff;
-      transform-origin: left;
-      transition: transform linear;
-    }
-
-    /* hidden real textarea */
-    #input {
-      position: fixed;
-      opacity: 0;
-      width: 1px;
-      height: 1px;
-      top: 0;
-      left: 0;
-    }
-  </style>
+  <link rel="stylesheet" href="./styles/app.css">
 </head>
 <body>
+  <div id="cycle-flash" class="cycle-flash" aria-hidden="true"></div>
+  <div class="app-shell">
+    <header class="site-header">
+      <div>
+        <h1 class="site-title">Vanishing Typing</h1>
+      </div>
+      <nav class="site-nav" aria-label="Primary">
+        <button class="nav-link is-active" type="button" data-screen-target="typing">메인</button>
+        <button class="nav-link" type="button" data-screen-target="write">입력</button>
+        <button class="nav-link" type="button" data-screen-target="review">복습</button>
+      </nav>
+    </header>
 
-  <div id="hint">Start with any sentence</div>
-  <div id="display"></div>
-  <div id="timer-bar-wrap">
-    <div id="timer-bar"></div>
+    <main class="screen-stack">
+      <section class="screen screen--active" data-screen="typing" aria-labelledby="typing-title">
+        <div class="typing-screen">
+          <div class="typing-meta">
+            <p id="hint" class="typing-hint">Start with any sentence</p>
+            <h2 id="typing-title" class="screen-title"></h2>
+          </div>
+
+          <div id="display" class="typing-display" aria-live="polite"></div>
+
+          <div class="timer-bar-wrap" aria-hidden="true">
+            <div id="timer-bar" class="timer-bar"></div>
+          </div>
+
+          <textarea
+            id="input"
+            class="sr-only-input"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+          ></textarea>
+        </div>
+      </section>
+
+      <section class="screen" data-screen="write" aria-labelledby="write-title" hidden>
+        <div class="editor-screen">
+          <div class="panel-header">
+            <div>
+              <p class="placeholder-label">Daily Input</p>
+              <h2 id="write-title" class="screen-title">학습 문장 입력</h2>
+            </div>
+          </div>
+
+          <form id="study-set-form" class="study-form">
+            <div class="field-grid">
+              <label class="field">
+                <span class="field-label">날짜</span>
+                <input id="study-date" name="dateKey" class="field-input" type="date" required>
+              </label>
+
+              <label class="field">
+                <span class="field-label">카테고리</span>
+                <input
+                  id="study-category"
+                  name="category"
+                  class="field-input"
+                  type="text"
+                  required
+                >
+              </label>
+            </div>
+
+            <label class="field">
+              <span class="field-label">문장 목록</span>
+              <textarea
+                id="study-sentences"
+                name="sentences"
+                class="field-input field-textarea"
+                placeholder="문장 하나당 한 줄씩 입력하세요."
+                required
+              ></textarea>
+            </label>
+
+            <div class="form-actions">
+              <button id="save-study-set" class="primary-button" type="submit">Firestore에 저장</button>
+              <p id="form-status" class="form-status" aria-live="polite"></p>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section class="screen" data-screen="review" aria-labelledby="review-title" hidden>
+        <div class="editor-screen">
+          <div class="panel-header">
+            <div>
+              <p class="placeholder-label">Review</p>
+              <h2 id="review-title" class="screen-title">복습 화면</h2>
+            </div>
+          </div>
+
+          <div class="field-grid">
+            <label class="field">
+              <span class="field-label">날짜 필터</span>
+              <select id="review-date-filter" class="field-input">
+                <option value="">전체 날짜</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span class="field-label">카테고리 필터</span>
+              <select id="review-category-filter" class="field-input">
+                <option value="">전체 카테고리</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <div class="button-row">
+              <button id="start-sequential-review" class="primary-button" type="button">순차 시작</button>
+              <button id="start-shuffle-review" class="secondary-button" type="button">셔플 시작</button>
+            </div>
+            <p id="review-filter-status" class="form-status" aria-live="polite"></p>
+          </div>
+
+          <section class="review-results">
+            <div class="panel-header">
+              <div>
+                <p class="placeholder-label">Selected Sentences</p>
+                <h3 class="subsection-title">복습 대상</h3>
+              </div>
+              <p id="review-result-count" class="status-subnote">문장을 불러오는 중입니다.</p>
+            </div>
+
+            <div id="review-empty" class="empty-state">
+              복습할 문장이 없습니다.
+            </div>
+
+            <ol id="review-results-list" class="saved-list" hidden></ol>
+          </section>
+        </div>
+      </section>
+    </main>
   </div>
-  <textarea id="input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
 
-  <script>
-    const display = document.getElementById('display');
-    const input = document.getElementById('input');
-    const hint = document.getElementById('hint');
-    const timerBar = document.getElementById('timer-bar');
-
-    const FADE_DELAY = 2000; // ms
-
-    let fadeTimeout = null;
-    let barTimeout = null;
-    let started = false;
-
-    // Keep focus on hidden textarea
-    document.addEventListener('click', () => input.focus());
-    document.addEventListener('keydown', () => input.focus());
-    input.focus();
-
-    input.addEventListener('input', () => {
-      if (!started) {
-        started = true;
-        hint.classList.add('hidden');
-      }
-
-      // Show text
-      display.textContent = input.value;
-      display.classList.remove('fade');
-
-      // Reset bar
-      clearTimeout(barTimeout);
-      timerBar.style.transition = 'none';
-      timerBar.style.transform = 'scaleX(1)';
-
-      // Animate bar going down over FADE_DELAY
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          timerBar.style.transition = `transform ${FADE_DELAY}ms linear`;
-          timerBar.style.transform = 'scaleX(0)';
-        });
-      });
-
-      // Reset fade timer
-      clearTimeout(fadeTimeout);
-      fadeTimeout = setTimeout(() => {
-        display.classList.add('fade');
-        // Clear textarea after fade
-        setTimeout(() => {
-          input.value = '';
-          display.textContent = '';
-          display.classList.remove('fade');
-        }, 800);
-      }, FADE_DELAY);
-    });
-  </script>
+  <script type="module" src="./scripts/app.js"></script>
 </body>
 </html>
