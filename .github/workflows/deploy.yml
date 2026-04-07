@@ -28,6 +28,7 @@ jobs:
       - name: Generate Firebase config from secrets
         shell: bash
         run: |
+          mkdir -p scripts/config
           cat <<EOF > scripts/config/firebase-config.js
           export const firebaseProjectConfig = {
             apiKey: '${{ secrets.FIREBASE_API_KEY }}',
