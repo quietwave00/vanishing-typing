@@ -33,7 +33,7 @@ export async function getFirebaseStatus() {
 }
 
 async function createFirebaseContext() {
-  const configSource = await loadFirebaseConfigSource();
+  const configSource = loadFirebaseConfigSource();
   const projectConfig = configSource.firebaseProjectConfig;
   const sdkUrls = configSource.firebaseSdkUrls;
 
@@ -56,20 +56,14 @@ async function createFirebaseContext() {
   };
 }
 
-async function loadFirebaseConfigSource() {
+function loadFirebaseConfigSource() {
   const runtimeConfig = globalThis.window?.__FIREBASE_CONFIG__;
 
   if (runtimeConfig) {
     return runtimeConfig;
   }
 
-  try {
-    return await import('../config/firebase-config.js');
-  } catch (error) {
-    throw new Error(
-      'Missing Firebase config.',
-    );
-  }
+  throw new Error('Missing Firebase config.');
 }
 
 function validateProjectConfig(config) {
