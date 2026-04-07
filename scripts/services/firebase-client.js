@@ -33,9 +33,9 @@ export async function getFirebaseStatus() {
 }
 
 async function createFirebaseContext() {
-  const configModule = await loadFirebaseConfigModule();
-  const projectConfig = configModule.firebaseProjectConfig;
-  const sdkUrls = configModule.firebaseSdkUrls;
+  const configSource = await loadFirebaseConfigSource();
+  const projectConfig = configSource.firebaseProjectConfig;
+  const sdkUrls = configSource.firebaseSdkUrls;
 
   validateProjectConfig(projectConfig);
   validateSdkUrls(sdkUrls);
@@ -56,12 +56,18 @@ async function createFirebaseContext() {
   };
 }
 
-async function loadFirebaseConfigModule() {
+async function loadFirebaseConfigSource() {
+  const runtimeConfig = globalThis.window?.__FIREBASE_CONFIG__;
+
+  if (runtimeConfig) {
+    return runtimeConfig;
+  }
+
   try {
     return await import('../config/firebase-config.js');
   } catch (error) {
     throw new Error(
-      'Missing scripts/config/firebase-config.js. For local development copy firebase-config.example.js. For GitHub Pages deployment generate the file from GitHub Actions secrets.',
+      'Missing Firebase config.',
     );
   }
 }
