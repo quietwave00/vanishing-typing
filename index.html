@@ -26,6 +26,7 @@
           <div class="typing-meta">
             <p id="hint" class="typing-hint">Start with any sentence</p>
             <h2 id="typing-title" class="screen-title"></h2>
+            <p id="typing-source-hint" class="typing-source-hint" hidden></p>
           </div>
 
           <div id="display" class="typing-display" aria-live="polite"></div>
@@ -73,16 +74,31 @@
               </label>
             </div>
 
-            <label class="field">
-              <span class="field-label">문장 목록</span>
-              <textarea
-                id="study-sentences"
-                name="sentences"
-                class="field-input field-textarea"
-                placeholder="문장 하나당 한 줄씩 입력하세요."
-                required
-              ></textarea>
-            </label>
+            <div class="paired-entry-panel">
+              <div class="paired-field-grid">
+                <label class="field">
+                  <span class="field-label">영어 문장</span>
+                  <textarea
+                    id="study-sentences"
+                    name="sentences"
+                    class="field-input field-textarea"
+                    placeholder="English sentence 1&#10;English sentence 2&#10;English sentence 3..."
+                    required
+                  ></textarea>
+                </label>
+
+                <label class="field">
+                  <span class="field-label">한글 해석</span>
+                  <textarea
+                    id="study-translations"
+                    name="translations"
+                    class="field-input field-textarea"
+                    placeholder="한글 해석 1&#10;한글 해석 2&#10;한글 해석 3..."
+                    required
+                  ></textarea>
+                </label>
+              </div>
+            </div>
 
             <div class="form-actions">
               <button id="save-study-set" class="primary-button" type="submit">Firestore에 저장</button>
@@ -128,7 +144,7 @@
           <section class="review-results">
             <div class="panel-header">
               <div>
-                <p class="placeholder-label">Selected Sentences</p>
+                <p class="placeholder-label">Selected Pairs</p>
                 <h3 class="subsection-title">복습 대상</h3>
               </div>
               <p id="review-result-count" class="status-subnote">문장을 불러오는 중입니다.</p>

@@ -11,12 +11,12 @@ export async function saveStudySet(input) {
 
   await sdk.setDoc(
     documentRef,
-    {
-      ...payload,
-      sentenceCount: payload.sentences.length,
-      updatedAt: sdk.serverTimestamp(),
-      createdAt: existingSnapshot.exists() ? existingSnapshot.data().createdAt : sdk.serverTimestamp(),
-    },
+      {
+        ...payload,
+        sentenceCount: payload.items.length,
+        updatedAt: sdk.serverTimestamp(),
+        createdAt: existingSnapshot.exists() ? existingSnapshot.data().createdAt : sdk.serverTimestamp(),
+      },
     { merge: true },
   );
 
@@ -82,9 +82,12 @@ export async function getLatestStudySet() {
 function normalizeStudySet(input) {
   const dateKey = String(input.dateKey ?? '').trim();
   const category = String(input.category ?? '').trim().toLowerCase();
-  const sentences = (input.sentences ?? [])
-    .map((sentence) => String(sentence).trim())
-    .filter(Boolean);
+  const items = (input.items ?? [])
+    .map((item) => ({
+      sourceText: String(item?.sourceText ?? '').trim(),
+      translationText: String(item?.translationText ?? '').trim(),
+    }))
+    .filter((item) => item.sourceText || item.translationText);
 
   if (!dateKey) {
     throw new Error('dateKey is required.');
@@ -94,15 +97,20 @@ function normalizeStudySet(input) {
     throw new Error('category is required.');
   }
 
-  if (sentences.length === 0) {
-    throw new Error('At least one sentence is required.');
+  if (items.length === 0) {
+    throw new Error('At least one sentence pair is required.');
+  }
+
+  const hasIncompleteItem = items.some((item) => !item.sourceText || !item.translationText);
+
+  if (hasIncompleteItem) {
+    throw new Error('Each sentence pair must include both sourceText and translationText.');
   }
 
   return {
     dateKey,
     category,
-    categorySlug: slugify(category),
-    sentences,
+    items,
   };
 }
 
@@ -118,8 +126,31 @@ function slugify(value) {
 }
 
 function mapStudySet(docSnapshot) {
+  const data = docSnapshot.data();
+  const items = normalizeStoredItems(data);
+
   return {
     id: docSnapshot.id,
-    ...docSnapshot.data(),
+    ...data,
+    items,
   };
+}
+
+function normalizeStoredItems(data) {
+  if (Array.isArray(data.items) && data.items.length > 0) {
+    return data.items
+      .map((item) => ({
+        sourceText: String(item?.sourceText ?? '').trim(),
+        translationText: String(item?.translationText ?? '').trim(),
+      }))
+      .filter((item) => item.sourceText || item.translationText);
+  }
+
+  return (data.sentences ?? [])
+    .map((sentence) => String(sentence ?? '').trim())
+    .filter(Boolean)
+    .map((sourceText) => ({
+      sourceText,
+      translationText: '',
+    }));
 }

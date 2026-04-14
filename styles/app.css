@@ -121,6 +121,14 @@ body {
   font-weight: 400;
 }
 
+.typing-source-hint {
+  margin-top: 14px;
+  color: rgba(29, 29, 31, 0.42);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
 .typing-display {
   font-size: 32px;
   font-weight: 500;
@@ -184,6 +192,16 @@ body {
   min-height: 240px;
   line-height: 1.7;
   resize: vertical;
+}
+
+.paired-entry-panel {
+  margin-top: 8px;
+}
+
+.paired-field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
 }
 
 /* 상태 표시 */
@@ -258,6 +276,7 @@ body {
   .site-header { flex-direction: column; align-items: flex-start; gap: 16px; }
   .typing-screen, .editor-screen { padding: 24px; }
   .field-grid { grid-template-columns: 1fr; }
+  .paired-field-grid { grid-template-columns: 1fr; }
 }
 
 /* --- 복습 화면 전용 추가 스타일 --- */

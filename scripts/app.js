@@ -6,6 +6,7 @@ const screenButtons = document.querySelectorAll('[data-screen-target]');
 const screens = document.querySelectorAll('[data-screen]');
 const typingScreen = document.querySelector('[data-screen="typing"]');
 const typingTitle = document.getElementById('typing-title');
+const typingSourceHint = document.getElementById('typing-source-hint');
 const cycleFlash = document.getElementById('cycle-flash');
 const studySetForm = document.getElementById('study-set-form');
 const saveButton = document.getElementById('save-study-set');
@@ -13,8 +14,7 @@ const formStatus = document.getElementById('form-status');
 const studyDateInput = document.getElementById('study-date');
 const studyCategoryInput = document.getElementById('study-category');
 const studySentencesInput = document.getElementById('study-sentences');
-const writeStatus = document.getElementById('write-status');
-const reviewStatus = document.getElementById('review-status');
+const studyTranslationsInput = document.getElementById('study-translations');
 const reviewDateFilter = document.getElementById('review-date-filter');
 const reviewCategoryFilter = document.getElementById('review-category-filter');
 const reviewFilterStatus = document.getElementById('review-filter-status');
@@ -38,6 +38,7 @@ let reviewState = {
   sentences: [],
   index: -1,
   mode: 'sequential',
+  revealSource: false,
 };
 
 setTypingPrompt('');
@@ -68,6 +69,7 @@ function showScreen(screenName) {
 document.addEventListener('click', focusInput);
 document.addEventListener('keydown', focusInput);
 document.addEventListener('keydown', handleGlobalKeydown);
+document.addEventListener('keyup', handleGlobalKeyup);
 
 screenButtons.forEach((button) => {
   button.addEventListener('click', async () => {
@@ -109,13 +111,26 @@ async function handleStudySetSubmit(event) {
   event.preventDefault();
 
   const formData = new FormData(studySetForm);
+  const sourceLines = parseTextareaLines(formData.get('sentences'));
+  const translationLines = parseTextareaLines(formData.get('translations'));
+
+  if (sourceLines.length === 0) {
+    formStatus.textContent = '영어 문장을 한 줄 이상 입력해야 합니다.';
+    return;
+  }
+
+  if (sourceLines.length !== translationLines.length) {
+    formStatus.textContent = `영어 ${sourceLines.length}줄, 해석 ${translationLines.length}줄입니다. 줄 수를 맞춰 주세요.`;
+    return;
+  }
+
   const payload = {
     dateKey: String(formData.get('dateKey') ?? '').trim(),
     category: String(formData.get('category') ?? '').trim(),
-    sentences: String(formData.get('sentences') ?? '')
-      .split('\n')
-      .map((sentence) => sentence.trim())
-      .filter(Boolean),
+    items: sourceLines.map((sourceText, index) => ({
+      sourceText,
+      translationText: translationLines[index],
+    })),
   };
 
   saveButton.disabled = true;
@@ -160,12 +175,14 @@ async function handleLookupTrigger() {
 
     if (!studySet) {
       studySentencesInput.value = '';
+      studyTranslationsInput.value = '';
       formStatus.textContent = '저장된 데이터가 없습니다. 새로 입력하면 됩니다.';
       return;
     }
 
     studyCategoryInput.value = studySet.category;
-    studySentencesInput.value = studySet.sentences.join('\n');
+    studySentencesInput.value = studySet.items.map((item) => item.sourceText).join('\n');
+    studyTranslationsInput.value = studySet.items.map((item) => item.translationText).join('\n');
     formStatus.textContent = `${studySet.dateKey} / ${studySet.category} 데이터를 불러왔습니다.`;
   } catch (error) {
     formStatus.textContent = `조회 실패: ${error.message}`;
@@ -192,6 +209,10 @@ async function populateReviewFilters() {
 
 async function refreshReviewResults() {
   if (!firestoreReady) {
+    return;
+  }
+
+  if (!reviewDateFilter.value) {
     return;
   }
 
@@ -248,6 +269,7 @@ function startReviewSession(mode) {
   }
 
   reviewState.mode = mode;
+  reviewState.revealSource = false;
   reviewState.sentences = mode === 'shuffle'
     ? shuffleItems([...reviewState.sentences])
     : [...reviewState.sentences].sort(compareReviewItems);
@@ -276,6 +298,7 @@ async function moveReviewSession(direction) {
   }
 
   reviewState.index = nextIndex;
+  reviewState.revealSource = false;
   reviewFilterStatus.textContent = describeCurrentReviewItem();
   syncTypingPrompt();
   showScreen('typing');
@@ -284,6 +307,25 @@ async function moveReviewSession(direction) {
 }
 
 async function handleGlobalKeydown(event) {
+  if (event.key === '`') {
+    if (!typingScreen.classList.contains('screen--active')) {
+      return;
+    }
+
+    const current = reviewState.sentences[reviewState.index];
+
+    if (!current?.translationText) {
+      return;
+    }
+
+    event.preventDefault();
+    if (!reviewState.revealSource) {
+      reviewState.revealSource = true;
+      syncTypingPrompt();
+    }
+    return;
+  }
+
   if (event.key !== 'Enter') {
     return;
   }
@@ -300,6 +342,19 @@ async function handleGlobalKeydown(event) {
   await moveReviewSession(1);
 }
 
+function handleGlobalKeyup(event) {
+  if (event.key !== '`') {
+    return;
+  }
+
+  if (!reviewState.revealSource) {
+    return;
+  }
+
+  reviewState.revealSource = false;
+  syncTypingPrompt();
+}
+
 function describeCurrentReviewItem() {
   const current = reviewState.sentences[reviewState.index];
 
@@ -313,11 +368,20 @@ function describeCurrentReviewItem() {
 
 function syncTypingPrompt() {
   const current = reviewState.sentences[reviewState.index];
-  setTypingPrompt(current?.sentence ?? '');
+  setTypingPrompt(current?.sentence ?? '', current?.translationText ?? '');
 }
 
-function setTypingPrompt(text) {
+function setTypingPrompt(text, translation = '') {
+  if (translation) {
+    typingTitle.textContent = translation;
+    typingSourceHint.textContent = text;
+    typingSourceHint.hidden = !reviewState.revealSource;
+    return;
+  }
+
   typingTitle.textContent = text;
+  typingSourceHint.textContent = '';
+  typingSourceHint.hidden = true;
 }
 
 async function playCycleFlash() {
@@ -329,11 +393,12 @@ async function playCycleFlash() {
 
 function flattenStudySets(sets) {
   return sets.flatMap((set) =>
-    set.sentences.map((sentence, index) => ({
+    set.items.map((item, index) => ({
       id: `${set.id}__${index}`,
       dateKey: set.dateKey,
       category: set.category,
-      sentence,
+      sentence: item.sourceText,
+      translationText: item.translationText,
     })),
   );
 }
@@ -392,4 +457,11 @@ function wait(ms) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, ms);
   });
+}
+
+function parseTextareaLines(value) {
+  return String(value ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
