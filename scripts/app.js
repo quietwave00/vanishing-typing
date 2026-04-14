@@ -17,6 +17,7 @@ const studySentencesInput = document.getElementById('study-sentences');
 const studyTranslationsInput = document.getElementById('study-translations');
 const reviewDateFilter = document.getElementById('review-date-filter');
 const reviewCategoryFilter = document.getElementById('review-category-filter');
+const reviewLanguageMode = document.getElementById('review-language-mode');
 const reviewFilterStatus = document.getElementById('review-filter-status');
 const reviewResultCount = document.getElementById('review-result-count');
 const reviewResultsList = document.getElementById('review-results-list');
@@ -39,6 +40,7 @@ let reviewState = {
   index: -1,
   mode: 'sequential',
   revealSource: false,
+  promptLanguage: 'translation',
 };
 
 setTypingPrompt('');
@@ -270,6 +272,7 @@ function startReviewSession(mode) {
 
   reviewState.mode = mode;
   reviewState.revealSource = false;
+  reviewState.promptLanguage = reviewLanguageMode.value || 'translation';
   reviewState.sentences = mode === 'shuffle'
     ? shuffleItems([...reviewState.sentences])
     : [...reviewState.sentences].sort(compareReviewItems);
@@ -374,7 +377,7 @@ function syncTypingPrompt() {
 }
 
 function setTypingPrompt(text, translation = '') {
-  if (translation) {
+  if (reviewState.promptLanguage === 'translation' && translation) {
     typingTitle.textContent = translation;
     typingSourceHint.textContent = text;
     typingSourceHint.hidden = !reviewState.revealSource;
@@ -382,8 +385,8 @@ function setTypingPrompt(text, translation = '') {
   }
 
   typingTitle.textContent = text;
-  typingSourceHint.textContent = '';
-  typingSourceHint.hidden = true;
+  typingSourceHint.textContent = translation;
+  typingSourceHint.hidden = !reviewState.revealSource || !translation;
 }
 
 async function playCycleFlash() {
