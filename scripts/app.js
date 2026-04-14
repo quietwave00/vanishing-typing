@@ -321,6 +321,7 @@ async function handleGlobalKeydown(event) {
     event.preventDefault();
     if (!reviewState.revealSource) {
       reviewState.revealSource = true;
+      typingEngine.pauseFadeTimer();
       syncTypingPrompt();
     }
     return;
@@ -352,6 +353,7 @@ function handleGlobalKeyup(event) {
   }
 
   reviewState.revealSource = false;
+  typingEngine.resumeFadeTimer();
   syncTypingPrompt();
 }
 

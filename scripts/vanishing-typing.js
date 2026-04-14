@@ -18,6 +18,10 @@ export class VanishingTyping {
     this.fadeTimeout = null;
     this.clearTimeout = null;
     this.started = false;
+    this.isPaused = false;
+    this.fadeStartedAt = 0;
+    this.remainingFadeDelay = this.options.fadeDelay;
+    this.rafId = null;
 
     this.handleInput = this.handleInput.bind(this);
     this.input.addEventListener('input', this.handleInput);
@@ -30,10 +34,14 @@ export class VanishingTyping {
   reset() {
     clearTimeout(this.fadeTimeout);
     clearTimeout(this.clearTimeout);
+    cancelAnimationFrame(this.rafId);
 
     this.input.value = '';
     this.display.textContent = '';
     this.display.classList.remove('fade');
+    this.isPaused = false;
+    this.fadeStartedAt = 0;
+    this.remainingFadeDelay = this.options.fadeDelay;
 
     this.timerBar.style.transition = 'none';
     this.timerBar.style.transform = 'scaleX(1)';
@@ -48,28 +56,71 @@ export class VanishingTyping {
 
     this.display.textContent = this.input.value;
     this.display.classList.remove('fade');
-    this.restartTimerBar();
+    this.remainingFadeDelay = this.options.fadeDelay;
+    this.startFadeTimer(this.remainingFadeDelay);
+    this.renderTimerBar(1);
+    this.animateTimerBar();
+  }
 
+  pauseFadeTimer() {
+    if (this.isPaused || !this.fadeStartedAt) {
+      return;
+    }
+
+    this.isPaused = true;
+    clearTimeout(this.fadeTimeout);
+    cancelAnimationFrame(this.rafId);
+    const elapsed = Date.now() - this.fadeStartedAt;
+    this.remainingFadeDelay = Math.max(0, this.remainingFadeDelay - elapsed);
+    this.renderTimerBar(this.remainingFadeDelay / this.options.fadeDelay);
+  }
+
+  resumeFadeTimer() {
+    if (!this.isPaused || !this.display.textContent) {
+      return;
+    }
+
+    this.isPaused = false;
+    this.startFadeTimer(this.remainingFadeDelay);
+    this.animateTimerBar();
+  }
+
+  startFadeTimer(delay) {
     clearTimeout(this.fadeTimeout);
     clearTimeout(this.clearTimeout);
 
+    this.fadeStartedAt = Date.now();
+    this.remainingFadeDelay = delay;
     this.fadeTimeout = setTimeout(() => {
       this.display.classList.add('fade');
       this.clearTimeout = setTimeout(() => {
         this.reset();
       }, this.options.clearDelay);
-    }, this.options.fadeDelay);
+    }, delay);
   }
 
-  restartTimerBar() {
-    this.timerBar.style.transition = 'none';
-    this.timerBar.style.transform = 'scaleX(1)';
+  animateTimerBar() {
+    cancelAnimationFrame(this.rafId);
 
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        this.timerBar.style.transition = `transform ${this.options.fadeDelay}ms linear`;
-        this.timerBar.style.transform = 'scaleX(0)';
-      });
-    });
+    const tick = () => {
+      if (this.isPaused || !this.fadeStartedAt) {
+        return;
+      }
+
+      const elapsed = Date.now() - this.fadeStartedAt;
+      const progress = Math.max(0, 1 - (elapsed / this.remainingFadeDelay));
+      this.renderTimerBar(progress);
+
+      if (progress > 0) {
+        this.rafId = requestAnimationFrame(tick);
+      }
+    };
+
+    this.rafId = requestAnimationFrame(tick);
+  }
+
+  renderTimerBar(progress) {
+    this.timerBar.style.transition = 'none';
+    this.timerBar.style.transform = `scaleX(${Math.max(0, Math.min(1, progress))})`;
   }
 }
