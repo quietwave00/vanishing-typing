@@ -1,4 +1,4 @@
-import { getStudySet, listStudySetCategories, listStudySets, saveStudySet } from './data/study-set-repository.js';
+import { getStudySet, listStudySets, saveStudySet } from './data/study-set-repository.js';
 import { VanishingTyping } from './vanishing-typing.js';
 import { getFirebaseStatus } from './services/firebase-client.js';
 
@@ -15,7 +15,6 @@ const studyDateInput = document.getElementById('study-date');
 const studyCategoryInput = document.getElementById('study-category');
 const studySentencesInput = document.getElementById('study-sentences');
 const studyTranslationsInput = document.getElementById('study-translations');
-const reviewDateFilter = document.getElementById('review-date-filter');
 const reviewCategoryFilter = document.getElementById('review-category-filter');
 const reviewLanguageMode = document.getElementById('review-language-mode');
 const reviewFilterStatus = document.getElementById('review-filter-status');
@@ -87,7 +86,6 @@ studySetForm.addEventListener('submit', handleStudySetSubmit);
 studyDateInput.addEventListener('change', handleLookupTrigger);
 studyCategoryInput.addEventListener('change', handleLookupTrigger);
 studyCategoryInput.addEventListener('blur', handleLookupTrigger);
-reviewDateFilter.addEventListener('change', refreshReviewResults);
 reviewCategoryFilter.addEventListener('change', refreshReviewResults);
 startSequentialReviewButton.addEventListener('click', () => startReviewSession('sequential'));
 startShuffleReviewButton.addEventListener('click', () => startReviewSession('shuffle'));
@@ -193,19 +191,13 @@ async function handleLookupTrigger() {
 
 async function populateReviewFilters() {
   const sets = await listStudySets();
-  const dateKeys = [...new Set(sets.map((set) => set.dateKey))];
-  const categories = await listStudySetCategories();
-
-  replaceSelectOptions(
-    reviewDateFilter,
-    '전체 날짜',
-    dateKeys.map((dateKey) => ({ value: dateKey, label: dateKey })),
-  );
-
   replaceSelectOptions(
     reviewCategoryFilter,
     '전체 카테고리',
-    categories.map((category) => ({ value: category, label: category })),
+    sets.map((set) => ({
+      value: createReviewFilterValue(set.category, set.dateKey),
+      label: `${set.category}(${set.dateKey})`,
+    })),
   );
 }
 
@@ -214,16 +206,13 @@ async function refreshReviewResults() {
     return;
   }
 
-  if (!reviewDateFilter.value) {
-    return;
-  }
-
   reviewFilterStatus.textContent = '복습 문장을 불러오는 중입니다...';
 
   try {
+    const selectedFilter = parseReviewFilterValue(reviewCategoryFilter.value);
     const sets = await listStudySets({
-      dateKey: reviewDateFilter.value,
-      category: reviewCategoryFilter.value,
+      dateKey: selectedFilter?.dateKey ?? '',
+      category: selectedFilter?.category ?? '',
     });
     const flattenedSentences = flattenStudySets(sets);
 
@@ -270,10 +259,12 @@ function startReviewSession(mode) {
     return;
   }
 
+  const isAllCategoriesSequential = mode === 'sequential' && !reviewCategoryFilter.value;
+
   reviewState.mode = mode;
   reviewState.revealSource = false;
   reviewState.promptLanguage = reviewLanguageMode.value || 'translation';
-  reviewState.sentences = mode === 'shuffle'
+  reviewState.sentences = mode === 'shuffle' || isAllCategoriesSequential
     ? shuffleItems([...reviewState.sentences])
     : [...reviewState.sentences].sort(compareReviewItems);
   reviewState.index = 0;
@@ -427,6 +418,26 @@ function createOption(value, label) {
   option.value = value;
   option.textContent = label;
   return option;
+}
+
+function createReviewFilterValue(category, dateKey) {
+  return `${String(category ?? '').trim().toLowerCase()}::${String(dateKey ?? '').trim()}`;
+}
+
+function parseReviewFilterValue(value) {
+  const normalizedValue = String(value ?? '').trim();
+
+  if (!normalizedValue) {
+    return null;
+  }
+
+  const [category, dateKey] = normalizedValue.split('::');
+
+  if (!category || !dateKey) {
+    return null;
+  }
+
+  return { category, dateKey };
 }
 
 function shuffleItems(items) {
