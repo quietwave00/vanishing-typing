@@ -51,6 +51,10 @@ function focusInput() {
 }
 
 function showScreen(screenName) {
+  if (screenName !== 'typing') {
+    stopReviewSpeech();
+  }
+
   screens.forEach((screen) => {
     const isActive = screen.dataset.screen === screenName;
 
@@ -259,12 +263,10 @@ function startReviewSession(mode) {
     return;
   }
 
-  const isAllCategoriesSequential = mode === 'sequential' && !reviewCategoryFilter.value;
-
   reviewState.mode = mode;
   reviewState.revealSource = false;
   reviewState.promptLanguage = reviewLanguageMode.value || 'translation';
-  reviewState.sentences = mode === 'shuffle' || isAllCategoriesSequential
+  reviewState.sentences = mode === 'shuffle'
     ? shuffleItems([...reviewState.sentences])
     : [...reviewState.sentences].sort(compareReviewItems);
   reviewState.index = 0;
@@ -272,6 +274,7 @@ function startReviewSession(mode) {
   reviewFilterStatus.textContent = describeCurrentReviewItem();
   syncTypingPrompt();
   showScreen('typing');
+  speakCurrentReviewSentence();
   typingEngine.reset();
   typingEngine.focus();
 }
@@ -296,6 +299,7 @@ async function moveReviewSession(direction) {
   reviewFilterStatus.textContent = describeCurrentReviewItem();
   syncTypingPrompt();
   showScreen('typing');
+  speakCurrentReviewSentence();
   typingEngine.reset();
   typingEngine.focus();
 }
@@ -367,6 +371,45 @@ function syncTypingPrompt() {
   setTypingPrompt(current?.sentence ?? '', current?.translationText ?? '');
 }
 
+function speakCurrentReviewSentence() {
+  stopReviewSpeech();
+
+  if (!isSourcePromptLanguage(reviewState.promptLanguage)) {
+    return;
+  }
+
+  const current = reviewState.sentences[reviewState.index];
+  const text = current?.sentence?.trim();
+
+  if (!text || typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    return;
+  }
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = getSpeechLanguage(reviewState.promptLanguage);
+  window.speechSynthesis.speak(utterance);
+}
+
+function stopReviewSpeech() {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    return;
+  }
+
+  window.speechSynthesis.cancel();
+}
+
+function isSourcePromptLanguage(promptLanguage) {
+  return promptLanguage === 'source-en' || promptLanguage === 'source-es';
+}
+
+function getSpeechLanguage(promptLanguage) {
+  if (promptLanguage === 'source-es') {
+    return 'es-ES';
+  }
+
+  return 'en-US';
+}
+
 function setTypingPrompt(text, translation = '') {
   if (reviewState.promptLanguage === 'translation' && translation) {
     typingTitle.textContent = translation;
@@ -393,6 +436,7 @@ function flattenStudySets(sets) {
       id: `${set.id}__${index}`,
       dateKey: set.dateKey,
       category: set.category,
+      itemIndex: index,
       sentence: item.sourceText,
       translationText: item.translationText,
     })),
@@ -451,7 +495,7 @@ function shuffleItems(items) {
 
 function compareReviewItems(left, right) {
   if (left.dateKey === right.dateKey) {
-    return left.category.localeCompare(right.category) || left.sentence.localeCompare(right.sentence);
+    return left.category.localeCompare(right.category) || left.itemIndex - right.itemIndex;
   }
 
   return right.dateKey.localeCompare(left.dateKey);
